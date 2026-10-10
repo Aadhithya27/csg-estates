@@ -15,7 +15,8 @@ interface AuthContextType {
   isGoogleConfigured: boolean;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
-  login: (email: string, pass: string) => Promise<boolean>;
+  login: (email: string, pass: string) => Promise<{ success: boolean; message: string }>;
+  signup: (name: string, email: string, pass: string) => Promise<{ success: boolean; message: string }>;
   loginWithGoogle: (credentialOrData: string | { name: string; email: string; avatarUrl?: string; sub?: string }) => Promise<boolean>;
   logout: () => void;
   setGoogleClientId: (clientId: string) => void;
@@ -44,26 +45,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGoogleClientIdState(clientId.trim());
   };
 
-  const login = async (email: string, pass: string): Promise<boolean> => {
-    // Owner login validation
-    if (email && pass && pass.length >= 4) {
-      const currentUser = DatabaseService.getUser();
-      const updatedUser: User = {
-        ...currentUser,
-        email,
-        name: currentUser?.name || 'C S G Estates Owner',
-        role: 'Owner',
-        provider: 'email',
-        lastLogin: new Date().toISOString(),
-      };
-      DatabaseService.saveUser(updatedUser);
-      setUser(updatedUser);
+  const login = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
+    if (!email || !pass) {
+      return { success: false, message: 'Please enter both email and password.' };
+    }
+    if (pass.length < 4) {
+      return { success: false, message: 'Password must be at least 4 characters long.' };
+    }
+
+    const authRes = DatabaseService.authenticate(email, pass);
+    if (authRes.success && authRes.user) {
+      setUser(authRes.user);
+      setIsAuthenticated(true);
+      localStorage.setItem('rpm_auth_state', 'true');
+      localStorage.setItem('rpm_auth_provider', authRes.user.provider || 'email');
+      return { success: true, message: authRes.message };
+    }
+
+    return { success: false, message: authRes.message || 'Authentication failed' };
+  };
+
+  const signup = async (
+    name: string,
+    email: string,
+    pass: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!name.trim()) {
+      return { success: false, message: 'Please enter your full name.' };
+    }
+    if (!email || !email.includes('@')) {
+      return { success: false, message: 'Please enter a valid email address.' };
+    }
+    if (!pass || pass.length < 4) {
+      return { success: false, message: 'Password must be at least 4 characters.' };
+    }
+
+    const res = DatabaseService.registerAccount(name, email, pass, 'email');
+    if (res.success && res.user) {
+      setUser(res.user);
       setIsAuthenticated(true);
       localStorage.setItem('rpm_auth_state', 'true');
       localStorage.setItem('rpm_auth_provider', 'email');
-      return true;
+      return { success: true, message: res.message };
     }
-    return false;
+
+    return { success: false, message: res.message };
   };
 
   const loginWithGoogle = async (
@@ -87,7 +113,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         googleProfile = credentialOrData;
       }
 
-      const googleUser: User = {
+      // Auto-register or authenticate account seamlessly
+      const regRes = DatabaseService.registerAccount(
+        googleProfile.name,
+        googleProfile.email,
+        '',
+        'google',
+        googleProfile.avatarUrl
+      );
+
+      const googleUser: User = regRes.user || {
         id: googleProfile.sub ? `usr-g-${googleProfile.sub.slice(0, 8)}` : `usr-g-${Date.now()}`,
         name: googleProfile.name || 'Google User',
         email: googleProfile.email,
@@ -136,6 +171,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: avatarUrl || user.avatarUrl,
     };
     DatabaseService.saveUser(updated);
+
+    // Also update in registered accounts list
+    try {
+      const accounts = DatabaseService.getAccounts();
+      const updatedAccounts = accounts.map((acc) =>
+        acc.id === user.id || acc.email.toLowerCase() === user.email.toLowerCase()
+          ? { ...acc, name, email, avatarUrl: avatarUrl || acc.avatarUrl }
+          : acc
+      );
+      DatabaseService.saveAccounts(updatedAccounts);
+    } catch (e) {
+      console.warn('Could not sync user profile to accounts:', e);
+    }
+
     setUser(updated);
   };
 
@@ -149,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSettingsOpen,
         setIsSettingsOpen,
         login,
+        signup,
         loginWithGoogle,
         logout,
         setGoogleClientId,

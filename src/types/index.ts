@@ -12,6 +12,17 @@ export interface User {
   lastLogin?: string;
 }
 
+export interface RegisteredAccount {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  role: string;
+  createdAt: string;
+  provider: 'email' | 'google';
+  avatarUrl?: string;
+}
+
 export interface AppSettings {
   estateName: string;
   ownerContactPhone: string;

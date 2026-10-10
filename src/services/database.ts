@@ -1,4 +1,4 @@
-import { AppSettings, Bill, Expense, PaymentRecord, Property, RentalHome, User } from '../types';
+import { AppSettings, Bill, Expense, PaymentRecord, Property, RegisteredAccount, RentalHome, User } from '../types';
 
 const STORAGE_KEYS = {
   PROPERTIES: 'rpm_properties_live',
@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   EXPENSES: 'rpm_expenses_live',
   USER: 'rpm_user_live',
   SETTINGS: 'rpm_settings_live',
+  ACCOUNTS: 'rpm_accounts_live',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -108,6 +109,94 @@ export class DatabaseService {
 
   static saveUser(data: User): void {
     this.setItem(STORAGE_KEYS.USER, data);
+  }
+
+  static getAccounts(): RegisteredAccount[] {
+    return this.getItem(STORAGE_KEYS.ACCOUNTS, []);
+  }
+
+  static saveAccounts(accounts: RegisteredAccount[]): void {
+    this.setItem(STORAGE_KEYS.ACCOUNTS, accounts);
+  }
+
+  static registerAccount(
+    name: string,
+    email: string,
+    password?: string,
+    provider: 'email' | 'google' = 'email',
+    avatarUrl?: string
+  ): { success: boolean; user?: User; message: string } {
+    const trimmedEmail = email.trim().toLowerCase();
+    const accounts = this.getAccounts();
+    const existing = accounts.find((a) => a.email.toLowerCase() === trimmedEmail);
+
+    if (existing && provider === 'email') {
+      return { success: false, message: 'An account with this email already exists. Please sign in.' };
+    }
+
+    const newUser: User = {
+      id: existing ? existing.id : `usr-${Date.now()}`,
+      name: name.trim() || trimmedEmail.split('@')[0],
+      email: trimmedEmail,
+      role: 'Owner',
+      provider,
+      avatarUrl: avatarUrl || existing?.avatarUrl,
+      lastLogin: new Date().toISOString(),
+    };
+
+    if (!existing) {
+      const newAccount: RegisteredAccount = {
+        id: newUser.id,
+        name: newUser.name,
+        email: trimmedEmail,
+        password: password || '',
+        role: 'Owner',
+        provider,
+        avatarUrl,
+        createdAt: new Date().toISOString(),
+      };
+      this.saveAccounts([...accounts, newAccount]);
+    }
+
+    this.saveUser(newUser);
+    return { success: true, user: newUser, message: 'Account created successfully!' };
+  }
+
+  static authenticate(
+    email: string,
+    password: string
+  ): { success: boolean; user?: User; message: string } {
+    const trimmedEmail = email.trim().toLowerCase();
+    const accounts = this.getAccounts();
+    const existing = accounts.find((a) => a.email.toLowerCase() === trimmedEmail);
+
+    if (!existing) {
+      // First-time owner setup or quick auto-creation if no accounts exist
+      if (accounts.length === 0 && password.length >= 4) {
+        return this.registerAccount(trimmedEmail.split('@')[0], trimmedEmail, password, 'email');
+      }
+      return {
+        success: false,
+        message: 'No account found with this email. Please switch to Create Account.',
+      };
+    }
+
+    if (existing.password && existing.password !== password) {
+      return { success: false, message: 'Incorrect password. Please try again.' };
+    }
+
+    const user: User = {
+      id: existing.id,
+      name: existing.name,
+      email: existing.email,
+      role: existing.role,
+      avatarUrl: existing.avatarUrl,
+      provider: existing.provider,
+      lastLogin: new Date().toISOString(),
+    };
+
+    this.saveUser(user);
+    return { success: true, user, message: 'Welcome back!' };
   }
 
   static getSettings(): AppSettings {
