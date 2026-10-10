@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white;
+  }
+}
+
+/* Custom Sleek Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.8);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.8);
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  aside, header, nav, button, .no-print {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .printable-invoice {
+    background: white !important;
+    color: black !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    padding: 24px !important;
+  }
+
+  .printable-invoice * {
+    color: black !important;
+    border-color: #cbd5e1 !important;
+    background-color: transparent !important;
+  }
+
+  .printable-invoice .print-highlight {
+    font-weight: bold !important;
+    color: #000 !important;
+  }
+}
+
