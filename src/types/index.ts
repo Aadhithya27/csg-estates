@@ -7,7 +7,7 @@ export interface User {
   email: string;
   role: string;
   avatarUrl?: string;
-  provider?: 'email' | 'google';
+  provider?: 'email' | 'google' | 'passkey';
   googleId?: string;
   lastLogin?: string;
 }
@@ -19,7 +19,7 @@ export interface RegisteredAccount {
   password?: string;
   role: string;
   createdAt: string;
-  provider: 'email' | 'google';
+  provider: 'email' | 'google' | 'passkey';
   avatarUrl?: string;
 }
 

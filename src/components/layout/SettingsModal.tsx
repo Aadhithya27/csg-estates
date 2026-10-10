@@ -27,23 +27,24 @@ import {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: 'google' | 'estate' | 'database' | 'checklist';
+  defaultTab?: 'sync' | 'estate' | 'database' | 'checklist';
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
-  defaultTab = 'google',
+  defaultTab = 'sync',
 }) => {
-  const { user, googleClientId, setGoogleClientId, isGoogleConfigured } = useAuth();
-  const { refreshData } = useData();
+  const { user, passkey, updatePasskey } = useAuth();
+  const { refreshData, syncNow, isServerSynced, lastSyncTime } = useData();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'google' | 'estate' | 'database' | 'checklist'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'sync' | 'estate' | 'database' | 'checklist'>(defaultTab);
 
-  // Google OAuth state
-  const [clientIdInput, setClientIdInput] = useState(googleClientId || '');
-  const [copiedOrigin, setCopiedOrigin] = useState(false);
+  // Passkey state
+  const [passkeyInput, setPasskeyInput] = useState(passkey || '9444423448');
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Estate Settings state
   const [settings, setSettings] = useState<AppSettings>(() => DatabaseService.getSettings());
@@ -54,29 +55,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setClientIdInput(googleClientId || '');
+      setPasskeyInput(DatabaseService.getPasskey());
       setSettings(DatabaseService.getSettings());
       setActiveTab(defaultTab);
     }
-  }, [isOpen, googleClientId, defaultTab]);
+  }, [isOpen, defaultTab]);
 
-  const handleSaveGoogleClientId = (e: React.FormEvent) => {
+  const handleSavePasskey = (e: React.FormEvent) => {
     e.preventDefault();
-    setGoogleClientId(clientIdInput.trim());
-    showToast(
-      clientIdInput.trim() ? 'Google Client ID Saved' : 'Client ID Cleared',
-      clientIdInput.trim() ? 'Google Identity Services will use this Client ID' : 'Switched to fallback mode',
-      'success'
-    );
+    if (!passkeyInput.trim()) {
+      showToast('Error', 'Passkey cannot be empty', 'error');
+      return;
+    }
+    updatePasskey(passkeyInput.trim());
+    showToast('Passkey Saved', `Family passkey is set to ${passkeyInput.trim()}`, 'success');
   };
 
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+  const mobileUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:5173/`
+    : 'http://192.168.29.111:5173/';
 
-  const copyOriginToClipboard = () => {
-    navigator.clipboard.writeText(currentOrigin);
-    setCopiedOrigin(true);
-    showToast('Copied to clipboard', currentOrigin, 'info');
-    setTimeout(() => setCopiedOrigin(false), 2000);
+  const copyMobileLink = () => {
+    navigator.clipboard.writeText(mobileUrl);
+    setCopiedLink(true);
+    showToast('Link Copied!', 'Open this link in your phone browser', 'info');
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    const ok = await syncNow();
+    setIsSyncing(false);
+    if (ok) {
+      showToast('Synced!', 'Data is 100% synchronized across PC and mobile', 'success');
+    } else {
+      showToast('Sync Warning', 'Could not reach server endpoint, using local cache', 'info');
+    }
   };
 
   const handleSaveEstateSettings = (e: React.FormEvent) => {
@@ -133,15 +147,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-800 text-xs overflow-x-auto custom-scrollbar">
           <button
-            onClick={() => setActiveTab('google')}
+            onClick={() => setActiveTab('sync')}
             className={`py-2.5 px-4 font-bold border-b-2 whitespace-nowrap transition-colors flex items-center space-x-1.5 ${
-              activeTab === 'google'
+              activeTab === 'sync'
                 ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Key className="w-3.5 h-3.5" />
-            <span>Google Authentication</span>
+            <span>Passkey & Mobile Sync</span>
           </button>
 
           <button
@@ -181,124 +195,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* TAB 1: GOOGLE AUTH */}
-        {activeTab === 'google' && (
+        {/* TAB 1: PASSKEY & MOBILE SYNC */}
+        {activeTab === 'sync' && (
           <div className="space-y-5 text-xs">
             {/* Status Card */}
             <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    isGoogleConfigured
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  }`}
-                >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white">
-                    {isGoogleConfigured ? 'Google OAuth 2.0 Configured' : 'Google Identity Ready'}
+                  <h4 className="font-bold text-white flex items-center space-x-2">
+                    <span>Central Server Database Active</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   </h4>
                   <p className="text-[11px] text-slate-400">
-                    {isGoogleConfigured
-                      ? 'Using your custom Google Cloud Web Client ID'
-                      : 'Using built-in Google Auth helper. Configure your own Client ID below.'}
+                    Real-time cross-device sync active via <code className="text-emerald-400">server-data.json</code>
                   </p>
                 </div>
               </div>
-              <span
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                  isGoogleConfigured
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                }`}
+              <button
+                type="button"
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center space-x-1.5 shadow transition-all cursor-pointer"
               >
-                {isGoogleConfigured ? 'Live Production' : 'Ready / Hybrid'}
-              </span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+              </button>
             </div>
 
-            {/* Client ID Form */}
-            <form onSubmit={handleSaveGoogleClientId} className="space-y-3">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Google OAuth Client ID (Web Application)
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={clientIdInput}
-                    onChange={(e) => setClientIdInput(e.target.value)}
-                    placeholder="e.g. 1234567890-abcdefg1234567.apps.googleusercontent.com"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono text-[11px]"
-                  />
+            {/* Family Passkey Form */}
+            <form onSubmit={handleSavePasskey} className="p-4 bg-slate-950 border border-slate-800/80 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-bold text-white text-xs flex items-center space-x-2">
+                    <Key className="w-4 h-4 text-indigo-400" />
+                    <span>Master Family Passkey</span>
+                  </h5>
+                  <p className="text-[11px] text-slate-400">
+                    Your family uses this number to unlock the ERP on all devices.
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  You can also specify this in your environment as <code className="text-indigo-400">VITE_GOOGLE_CLIENT_ID</code>.
-                </p>
+                <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full font-mono font-bold text-[11px]">
+                  Default: 9444423448
+                </span>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="text"
+                  value={passkeyInput}
+                  onChange={(e) => setPasskeyInput(e.target.value)}
+                  placeholder="9444423448"
+                  required
+                  className="flex-1 px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono text-sm tracking-wider"
+                />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow cursor-pointer"
+                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow cursor-pointer whitespace-nowrap"
                 >
-                  Save Client ID
+                  Save Passkey
                 </button>
-                {clientIdInput && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setClientIdInput('');
-                      setGoogleClientId('');
-                      showToast('Client ID Cleared', 'Reset to default mode', 'info');
-                    }}
-                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium"
-                  >
-                    Clear
-                  </button>
-                )}
               </div>
             </form>
 
-            {/* Quick Setup Instructions */}
+            {/* Mobile Wi-Fi Access Card */}
             <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-2xl space-y-3">
               <h5 className="font-bold text-slate-200 text-xs flex items-center space-x-2">
-                <Key className="w-3.5 h-3.5 text-indigo-400" />
-                <span>How to get your Google Client ID (2 Minutes)</span>
+                <span>📱 Access On Your Mobile Phone</span>
               </h5>
+              <p className="text-[11px] text-slate-400">
+                Connect your phone to the same Wi-Fi network and open this URL in your mobile browser:
+              </p>
 
-              <ol className="list-decimal list-inside space-y-2 text-[11px] text-slate-400">
-                <li>
-                  Open{' '}
-                  <a
-                    href="https://console.cloud.google.com/apis/credentials"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-indigo-400 hover:underline inline-flex items-center space-x-0.5"
-                  >
-                    <span>Google Cloud Console Credentials</span>
-                    <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
-                  </a>
-                </li>
-                <li>Click <strong>Create Credentials</strong> &rarr; <strong>OAuth client ID</strong>.</li>
-                <li>Select Application type: <strong>Web application</strong>.</li>
-                <li>
-                  Under <strong>Authorized JavaScript origins</strong>, add your website address:
-                  <div className="mt-1 flex items-center space-x-2 bg-slate-900 border border-slate-800 p-2 rounded-lg font-mono text-[10px] text-slate-200">
-                    <span className="truncate flex-1">{currentOrigin}</span>
-                    <button
-                      type="button"
-                      onClick={copyOriginToClipboard}
-                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded flex items-center space-x-1 shrink-0"
-                    >
-                      {copiedOrigin ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedOrigin ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                </li>
-                <li>Copy the generated <strong>Client ID</strong> and paste it into the box above!</li>
-              </ol>
+              <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 p-2.5 rounded-xl font-mono text-xs text-emerald-400">
+                <span className="truncate flex-1 select-all">{mobileUrl}</span>
+                <button
+                  type="button"
+                  onClick={copyMobileLink}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg flex items-center space-x-1.5 shrink-0 transition-colors cursor-pointer"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
+                </button>
+              </div>
+
+              <div className="p-3 bg-emerald-950/20 border border-emerald-800/30 rounded-xl text-[11px] text-emerald-300 flex items-start space-x-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                <span>
+                  <strong>Identical Data Guarantee:</strong> When you add a property, tenant, or payment on your phone, it immediately updates on your PC, and vice-versa.
+                </span>
+              </div>
             </div>
           </div>
         )}

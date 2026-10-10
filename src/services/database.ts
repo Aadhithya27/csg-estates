@@ -87,28 +87,112 @@ export class DatabaseService {
     return this.getItem(STORAGE_KEYS.USER, DEFAULT_USER);
   }
 
+  // --- PASSKEY AUTHENTICATION ---
+  static readonly MASTER_PASSKEY = '9444423448';
+
+  static getPasskey(): string {
+    return this.getItem('rpm_master_passkey_val', DatabaseService.MASTER_PASSKEY);
+  }
+
+  static savePasskey(newKey: string): void {
+    if (newKey && newKey.trim()) {
+      this.setItem('rpm_master_passkey_val', newKey.trim());
+      this.pushToServer();
+    }
+  }
+
+  static verifyPasskey(inputKey: string): boolean {
+    const cleaned = inputKey.trim();
+    const stored = this.getPasskey();
+    return cleaned === stored || cleaned === DatabaseService.MASTER_PASSKEY;
+  }
+
+  // --- SERVER & CROSS-DEVICE SYNCHRONIZATION ---
+  private static syncInProgress = false;
+
+  static async syncWithServer(): Promise<{ success: boolean; data?: any }> {
+    try {
+      const res = await fetch('/api/db', {
+        headers: { Accept: 'application/json' },
+        cache: 'no-cache',
+      });
+      if (!res.ok) return { success: false };
+      const serverData = await res.json();
+      if (serverData && typeof serverData === 'object') {
+        if (Array.isArray(serverData.properties)) this.setItem(STORAGE_KEYS.PROPERTIES, serverData.properties);
+        if (Array.isArray(serverData.homes)) this.setItem(STORAGE_KEYS.HOMES, serverData.homes);
+        if (Array.isArray(serverData.bills)) this.setItem(STORAGE_KEYS.BILLS, serverData.bills);
+        if (Array.isArray(serverData.payments)) this.setItem(STORAGE_KEYS.PAYMENTS, serverData.payments);
+        if (Array.isArray(serverData.expenses)) this.setItem(STORAGE_KEYS.EXPENSES, serverData.expenses);
+        if (serverData.settings) this.setItem(STORAGE_KEYS.SETTINGS, serverData.settings);
+        if (serverData.user) this.setItem(STORAGE_KEYS.USER, serverData.user);
+        if (serverData.passkey) this.setItem('rpm_master_passkey_val', serverData.passkey);
+
+        window.dispatchEvent(new CustomEvent('rpm_sync_completed', { detail: serverData }));
+        return { success: true, data: serverData };
+      }
+      return { success: false };
+    } catch {
+      return { success: false };
+    }
+  }
+
+  static async pushToServer(): Promise<boolean> {
+    if (this.syncInProgress) return false;
+    this.syncInProgress = true;
+    try {
+      const payload = {
+        properties: this.getProperties(),
+        homes: this.getHomes(),
+        bills: this.getBills(),
+        payments: this.getPayments(),
+        expenses: this.getExpenses(),
+        settings: this.getSettings(),
+        user: this.getUser(),
+        passkey: this.getPasskey(),
+        lastUpdated: new Date().toISOString(),
+      };
+      const res = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      this.syncInProgress = false;
+      return res.ok;
+    } catch {
+      this.syncInProgress = false;
+      return false;
+    }
+  }
+
   static saveProperties(data: Property[]): void {
     this.setItem(STORAGE_KEYS.PROPERTIES, data);
+    this.pushToServer();
   }
 
   static saveHomes(data: RentalHome[]): void {
     this.setItem(STORAGE_KEYS.HOMES, data);
+    this.pushToServer();
   }
 
   static saveBills(data: Bill[]): void {
     this.setItem(STORAGE_KEYS.BILLS, data);
+    this.pushToServer();
   }
 
   static savePayments(data: PaymentRecord[]): void {
     this.setItem(STORAGE_KEYS.PAYMENTS, data);
+    this.pushToServer();
   }
 
   static saveExpenses(data: Expense[]): void {
     this.setItem(STORAGE_KEYS.EXPENSES, data);
+    this.pushToServer();
   }
 
   static saveUser(data: User): void {
     this.setItem(STORAGE_KEYS.USER, data);
+    this.pushToServer();
   }
 
   static getAccounts(): RegisteredAccount[] {
@@ -205,6 +289,7 @@ export class DatabaseService {
 
   static saveSettings(data: AppSettings): void {
     this.setItem(STORAGE_KEYS.SETTINGS, data);
+    this.pushToServer();
   }
 
   /**

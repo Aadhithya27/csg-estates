@@ -1,27 +1,26 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { DatabaseService } from '../services/database';
-import {
-  decodeGoogleCredential,
-  disableGoogleAutoSelect,
-  getActiveGoogleClientId,
-  setStoredGoogleClientId,
-} from '../services/googleAuth';
 import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  googleClientId: string;
-  isGoogleConfigured: boolean;
+  passkey: string;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
-  login: (email: string, pass: string) => Promise<{ success: boolean; message: string }>;
-  signup: (name: string, email: string, pass: string) => Promise<{ success: boolean; message: string }>;
-  loginWithGoogle: (credentialOrData: string | { name: string; email: string; avatarUrl?: string; sub?: string }) => Promise<boolean>;
+  loginWithPasskey: (passkey: string, memberName?: string) => { success: boolean; message: string };
+  updatePasskey: (newKey: string) => void;
   logout: () => void;
-  setGoogleClientId: (clientId: string) => void;
-  resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   updateUserProfile: (name: string, email: string, avatarUrl?: string) => void;
+
+  // Compatibility stubs
+  login: (emailOrPasskey: string, pass?: string) => Promise<{ success: boolean; message: string }>;
+  signup: (name: string, email: string, pass: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: (data: any) => Promise<boolean>;
+  googleClientId: string;
+  isGoogleConfigured: boolean;
+  setGoogleClientId: (id: string) => void;
+  resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,135 +30,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     DatabaseService.initDatabase();
     return DatabaseService.getUser();
   });
-  const [googleClientId, setGoogleClientIdState] = useState<string>(() => getActiveGoogleClientId());
+  const [passkey, setPasskeyState] = useState<string>(() => DatabaseService.getPasskey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const savedAuth = localStorage.getItem('rpm_auth_state');
     return savedAuth === 'true';
   });
 
-  const isGoogleConfigured = Boolean(googleClientId && googleClientId.trim().length > 10);
-
-  const setGoogleClientId = (clientId: string) => {
-    setStoredGoogleClientId(clientId);
-    setGoogleClientIdState(clientId.trim());
-  };
-
-  const login = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
-    if (!email || !pass) {
-      return { success: false, message: 'Please enter both email and password.' };
-    }
-    if (pass.length < 4) {
-      return { success: false, message: 'Password must be at least 4 characters long.' };
+  const loginWithPasskey = (inputPasskey: string, memberName?: string): { success: boolean; message: string } => {
+    if (!inputPasskey || !inputPasskey.trim()) {
+      return { success: false, message: 'Please enter the family passkey.' };
     }
 
-    const authRes = DatabaseService.authenticate(email, pass);
-    if (authRes.success && authRes.user) {
-      setUser(authRes.user);
-      setIsAuthenticated(true);
-      localStorage.setItem('rpm_auth_state', 'true');
-      localStorage.setItem('rpm_auth_provider', authRes.user.provider || 'email');
-      return { success: true, message: authRes.message };
-    }
-
-    return { success: false, message: authRes.message || 'Authentication failed' };
-  };
-
-  const signup = async (
-    name: string,
-    email: string,
-    pass: string
-  ): Promise<{ success: boolean; message: string }> => {
-    if (!name.trim()) {
-      return { success: false, message: 'Please enter your full name.' };
-    }
-    if (!email || !email.includes('@')) {
-      return { success: false, message: 'Please enter a valid email address.' };
-    }
-    if (!pass || pass.length < 4) {
-      return { success: false, message: 'Password must be at least 4 characters.' };
-    }
-
-    const res = DatabaseService.registerAccount(name, email, pass, 'email');
-    if (res.success && res.user) {
-      setUser(res.user);
-      setIsAuthenticated(true);
-      localStorage.setItem('rpm_auth_state', 'true');
-      localStorage.setItem('rpm_auth_provider', 'email');
-      return { success: true, message: res.message };
-    }
-
-    return { success: false, message: res.message };
-  };
-
-  const loginWithGoogle = async (
-    credentialOrData: string | { name: string; email: string; avatarUrl?: string; sub?: string }
-  ): Promise<boolean> => {
-    try {
-      let googleProfile: { name: string; email: string; avatarUrl?: string; sub?: string };
-
-      if (typeof credentialOrData === 'string') {
-        const decoded = decodeGoogleCredential(credentialOrData);
-        if (!decoded) {
-          throw new Error('Invalid Google credential token');
-        }
-        googleProfile = {
-          name: decoded.name || decoded.email.split('@')[0],
-          email: decoded.email,
-          avatarUrl: decoded.picture,
-          sub: decoded.sub,
-        };
-      } else {
-        googleProfile = credentialOrData;
-      }
-
-      // Auto-register or authenticate account seamlessly
-      const regRes = DatabaseService.registerAccount(
-        googleProfile.name,
-        googleProfile.email,
-        '',
-        'google',
-        googleProfile.avatarUrl
-      );
-
-      const googleUser: User = regRes.user || {
-        id: googleProfile.sub ? `usr-g-${googleProfile.sub.slice(0, 8)}` : `usr-g-${Date.now()}`,
-        name: googleProfile.name || 'Google User',
-        email: googleProfile.email,
-        role: 'Owner',
-        avatarUrl: googleProfile.avatarUrl,
-        provider: 'google',
-        googleId: googleProfile.sub,
-        lastLogin: new Date().toISOString(),
+    const isValid = DatabaseService.verifyPasskey(inputPasskey);
+    if (!isValid) {
+      return {
+        success: false,
+        message: 'Incorrect passkey. Please enter the family passkey (9444423448).',
       };
+    }
 
-      DatabaseService.saveUser(googleUser);
-      setUser(googleUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('rpm_auth_state', 'true');
-      localStorage.setItem('rpm_auth_provider', 'google');
-      return true;
-    } catch (err) {
-      console.error('Google Sign-In failed:', err);
-      return false;
+    const resolvedUser: User = {
+      id: 'usr-family',
+      name: memberName?.trim() || user?.name || 'C S G Family Owner',
+      email: user?.email || 'family@csgestates.com',
+      role: 'Owner',
+      provider: 'passkey',
+      lastLogin: new Date().toISOString(),
+    };
+
+    DatabaseService.saveUser(resolvedUser);
+    setUser(resolvedUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('rpm_auth_state', 'true');
+    localStorage.setItem('rpm_auth_provider', 'passkey');
+    return { success: true, message: 'Welcome to C S G Estates!' };
+  };
+
+  const updatePasskey = (newKey: string) => {
+    if (newKey && newKey.trim()) {
+      DatabaseService.savePasskey(newKey.trim());
+      setPasskeyState(newKey.trim());
     }
   };
 
   const logout = () => {
-    disableGoogleAutoSelect();
     setIsAuthenticated(false);
     localStorage.removeItem('rpm_auth_state');
     localStorage.removeItem('rpm_auth_provider');
-  };
-
-  const resetPassword = async (email: string) => {
-    if (email) {
-      return {
-        success: true,
-        message: `Password reset link sent to ${email}. Check your email inbox.`,
-      };
-    }
-    return { success: false, message: 'Please enter a valid email address.' };
   };
 
   const updateUserProfile = (name: string, email: string, avatarUrl?: string) => {
@@ -171,39 +89,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: avatarUrl || user.avatarUrl,
     };
     DatabaseService.saveUser(updated);
-
-    // Also update in registered accounts list
-    try {
-      const accounts = DatabaseService.getAccounts();
-      const updatedAccounts = accounts.map((acc) =>
-        acc.id === user.id || acc.email.toLowerCase() === user.email.toLowerCase()
-          ? { ...acc, name, email, avatarUrl: avatarUrl || acc.avatarUrl }
-          : acc
-      );
-      DatabaseService.saveAccounts(updatedAccounts);
-    } catch (e) {
-      console.warn('Could not sync user profile to accounts:', e);
-    }
-
     setUser(updated);
   };
+
+  // Compatibility helpers
+  const login = async (emailOrPasskey: string, pass?: string) => {
+    if (DatabaseService.verifyPasskey(emailOrPasskey) || (pass && DatabaseService.verifyPasskey(pass))) {
+      return loginWithPasskey(DatabaseService.MASTER_PASSKEY);
+    }
+    return loginWithPasskey(emailOrPasskey);
+  };
+
+  const signup = async (name: string, email: string, pass: string) => {
+    return loginWithPasskey(pass, name);
+  };
+
+  const loginWithGoogle = async () => false;
+  const resetPassword = async () => ({ success: true, message: 'Passkey is 9444423448' });
+  const setGoogleClientId = () => {};
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated,
-        googleClientId,
-        isGoogleConfigured,
+        passkey,
         isSettingsOpen,
         setIsSettingsOpen,
+        loginWithPasskey,
+        updatePasskey,
+        logout,
+        updateUserProfile,
         login,
         signup,
         loginWithGoogle,
-        logout,
+        googleClientId: '',
+        isGoogleConfigured: false,
         setGoogleClientId,
         resetPassword,
-        updateUserProfile,
       }}
     >
       {children}

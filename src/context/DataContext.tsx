@@ -39,6 +39,9 @@ interface DataContextType {
 
   // Helpers & Synchronization
   refreshData: () => void;
+  syncNow: () => Promise<boolean>;
+  isServerSynced: boolean;
+  lastSyncTime: string | null;
   getPropertyById: (id: string) => Property | undefined;
   getHomeById: (id: string) => RentalHome | undefined;
   getBillById: (id: string) => Bill | undefined;
@@ -47,18 +50,67 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  useEffect(() => {
-    DatabaseService.initDatabase();
-  }, []);
-
   const [properties, setProperties] = useState<Property[]>(() => DatabaseService.getProperties());
   const [homes, setHomes] = useState<RentalHome[]>(() => DatabaseService.getHomes());
   const [bills, setBills] = useState<Bill[]>(() => DatabaseService.getBills());
   const [payments, setPayments] = useState<PaymentRecord[]>(() => DatabaseService.getPayments());
   const [expenses, setExpenses] = useState<Expense[]>(() => DatabaseService.getExpenses());
+  const [isServerSynced, setIsServerSynced] = useState<boolean>(true);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('ALL');
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
+
+  const syncNow = async (): Promise<boolean> => {
+    const res = await DatabaseService.syncWithServer();
+    if (res.success) {
+      setIsServerSynced(true);
+      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    DatabaseService.initDatabase();
+    syncNow();
+
+    const handleSyncEvent = (e: any) => {
+      const data = e.detail;
+      if (data) {
+        if (Array.isArray(data.properties)) setProperties(data.properties);
+        if (Array.isArray(data.homes)) setHomes(data.homes);
+        if (Array.isArray(data.bills)) setBills(data.bills);
+        if (Array.isArray(data.payments)) setPayments(data.payments);
+        if (Array.isArray(data.expenses)) setExpenses(data.expenses);
+        setIsServerSynced(true);
+        setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
+    };
+
+    window.addEventListener('rpm_sync_completed', handleSyncEvent);
+
+    // Periodic background sync across devices (every 4 seconds)
+    const interval = setInterval(() => {
+      DatabaseService.syncWithServer();
+    }, 4000);
+
+    // Sync whenever tab is focused or phone screen turns on
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        DatabaseService.syncWithServer();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    return () => {
+      window.removeEventListener('rpm_sync_completed', handleSyncEvent);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, []);
 
   // Persistence helpers
   const syncProperties = (data: Property[]) => {
@@ -234,6 +286,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBills(DatabaseService.getBills());
     setPayments(DatabaseService.getPayments());
     setExpenses(DatabaseService.getExpenses());
+    DatabaseService.syncWithServer();
   };
 
   return (
@@ -262,6 +315,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateExpense,
         deleteExpense,
         refreshData,
+        syncNow,
+        isServerSynced,
+        lastSyncTime,
         getPropertyById,
         getHomeById,
         getBillById,

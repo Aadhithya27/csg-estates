@@ -122,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <p className="text-xs font-bold text-slate-100 truncate">{user?.name || 'Owner'}</p>
                 <div className="flex items-center space-x-1 text-[10px] text-emerald-400 font-semibold">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>{user?.provider === 'google' ? 'Google Auth' : 'Owner Control'}</span>
+                  <span>Master Passkey Key</span>
                 </div>
               </div>
             )}

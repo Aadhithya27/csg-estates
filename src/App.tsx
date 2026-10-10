@@ -13,77 +13,68 @@ import { PropertiesList } from './components/properties/PropertiesList';
 import { BillsList } from './components/bills/BillsList';
 import { ExpensesList } from './components/expenses/ExpensesList';
 import { QuickActionModal } from './components/dashboard/QuickActionModal';
-import { GoogleSignInButton } from './components/auth/GoogleSignInButton';
 
-import { Building2, Lock, Mail, ShieldCheck, ArrowRight, Sparkles, Key, User as UserIcon, UserPlus, LogIn } from 'lucide-react';
+import {
+  Building2,
+  Lock,
+  ShieldCheck,
+  ArrowRight,
+  Sparkles,
+  Key,
+  Eye,
+  EyeOff,
+  Smartphone,
+  Wifi,
+  Delete,
+  CheckCircle2,
+} from 'lucide-react';
+import { useData } from './context/DataContext';
 
-// Login Screen
+// Family Passkey Lock Screen
 const LoginScreen: React.FC = () => {
-  const { login, signup, resetPassword } = useAuth();
+  const { loginWithPasskey } = useAuth();
+  const { syncNow, isServerSynced } = useData();
   const { showToast } = useToast();
 
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isForgotOpen, setIsForgotOpen] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [enteredPasskey, setEnteredPasskey] = useState('');
+  const [showPasskey, setShowPasskey] = useState(false);
+  const [memberName, setMemberName] = useState('Aadhithya (Owner)');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUnlock = (keyToTest?: string) => {
+    const key = (keyToTest || enteredPasskey).trim();
+    if (!key) {
+      showToast('Passkey Required', 'Please enter the 10-digit family passkey', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
-    const res = await login(email, password);
+    const res = loginWithPasskey(key, memberName);
     setIsSubmitting(false);
 
     if (res.success) {
-      showToast('Welcome Back!', 'Signed into Property Manager', 'success');
+      showToast('Welcome!', 'C S G Estates Unlocked', 'success');
+      syncNow();
     } else {
-      showToast('Sign In Failed', res.message, 'error');
+      showToast('Access Denied', res.message, 'error');
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      showToast('Name Required', 'Please enter your full name', 'error');
-      return;
-    }
-    if (!email || !email.includes('@')) {
-      showToast('Email Required', 'Please enter a valid email address', 'error');
-      return;
-    }
-    if (password.length < 4) {
-      showToast('Short Password', 'Password must be at least 4 characters long', 'error');
-      return;
-    }
-    if (password !== confirmPassword) {
-      showToast('Password Mismatch', 'The passwords you entered do not match', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const res = await signup(name, email, password);
-    setIsSubmitting(false);
-
-    if (res.success) {
-      showToast('Account Created!', `Welcome, ${name}! Your account is ready.`, 'success');
+  const handleKeypadPress = (digit: string) => {
+    if (digit === 'DEL') {
+      setEnteredPasskey((prev) => prev.slice(0, -1));
+    } else if (digit === 'CLR') {
+      setEnteredPasskey('');
     } else {
-      showToast('Sign Up Failed', res.message, 'error');
-      if (res.message.includes('already exists')) {
-        setAuthMode('signin');
+      if (enteredPasskey.length < 15) {
+        setEnteredPasskey((prev) => prev + digit);
       }
     }
   };
 
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await resetPassword(resetEmail);
-    showToast(res.success ? 'Email Sent' : 'Error', res.message, res.success ? 'info' : 'error');
-    setIsForgotOpen(false);
-  };
+  const mobileUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:5173/`
+    : 'http://192.168.29.111:5173/';
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-slate-100 relative overflow-hidden">
@@ -93,259 +84,129 @@ const LoginScreen: React.FC = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="relative w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+        {/* Header */}
         <div className="text-center space-y-1.5">
-          <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white mx-auto shadow-xl shadow-indigo-600/30">
-            <Building2 className="w-7 h-7" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white mx-auto shadow-xl shadow-indigo-600/30">
+            <Building2 className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white mt-1">C S G Estates</h1>
-          <p className="text-xs text-slate-400">Rental Property Management — Owner & Manager ERP</p>
+          <p className="text-xs text-slate-400 font-medium">Rental Property Management — Family Access</p>
         </div>
 
-        {/* Auth Mode Switcher */}
-        <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800/80 rounded-2xl text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setAuthMode('signin')}
-            className={`py-2 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-              authMode === 'signin'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAuthMode('signup')}
-            className={`py-2 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-              authMode === 'signup'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Create Account</span>
-          </button>
-        </div>
-
-        {/* 1. Seamless Google Sign-In Integration */}
-        <div className="space-y-2">
-          <GoogleSignInButton onOpenSetup={() => setIsSetupOpen(true)} />
-        </div>
-
-        {/* Divider */}
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-800"></div>
-          </div>
-          <div className="relative flex justify-center text-[10px] uppercase">
-            <span className="bg-slate-900 px-3 text-slate-500 font-semibold tracking-wider">
-              {authMode === 'signin' ? 'Or with Email & Password' : 'Or Register with Email'}
+        {/* Live Network Sync Badge */}
+        <div className="p-3 bg-emerald-950/20 border border-emerald-800/40 rounded-2xl flex items-center justify-between text-xs">
+          <div className="flex items-center space-x-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
+            <span className="font-bold text-emerald-300">Central Sync Server Active</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono">Mobile & PC Shared</span>
+        </div>
+
+        {/* Member Profile Selector */}
+        <div>
+          <label className="block text-slate-400 font-semibold mb-1 text-[11px]">Signing in as:</label>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {['Aadhithya (Owner)', 'Family Member'].map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setMemberName(name)}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer truncate ${
+                  memberName === name
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-sm'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {name}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* 2. Standard Email/Password Form (Sign In) */}
-        {authMode === 'signin' ? (
-          <form onSubmit={handleLogin} className="space-y-4 text-xs">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Email Address *</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-slate-300 font-semibold">Password *</label>
-                <button
-                  type="button"
-                  onClick={() => setIsForgotOpen(true)}
-                  className="text-[11px] text-indigo-400 hover:underline font-semibold cursor-pointer"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <span>Sign In to Dashboard</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <div className="text-center pt-1">
-              <span className="text-slate-400 text-[11px]">Don't have an account yet? </span>
+        {/* Passkey Input Box */}
+        <form onSubmit={(e) => { e.preventDefault(); handleUnlock(); }} className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-slate-300 font-semibold text-xs flex items-center space-x-1.5">
+                <Key className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Family Passkey (PIN)</span>
+              </label>
               <button
                 type="button"
-                onClick={() => setAuthMode('signup')}
-                className="text-indigo-400 hover:text-indigo-300 font-bold hover:underline cursor-pointer text-[11px]"
+                onClick={() => {
+                  setEnteredPasskey('9444423448');
+                  handleUnlock('9444423448');
+                }}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-bold cursor-pointer"
               >
-                Create Account
+                1-Touch Passkey (9444423448)
               </button>
             </div>
-          </form>
-        ) : (
-          /* 3. Create Account Form (Sign Up) */
-          <form onSubmit={handleSignup} className="space-y-3.5 text-xs">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Full Name *</label>
-              <div className="relative">
-                <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Alex Morgan"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Email Address *</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Password *</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min 4 chars"
-                    required
-                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Confirm Password *</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
-                    required
-                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50 mt-1"
-            >
-              <span>Create Account & Enter Dashboard</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <div className="text-center pt-1">
-              <span className="text-slate-400 text-[11px]">Already registered? </span>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type={showPasskey ? 'text' : 'password'}
+                value={enteredPasskey}
+                onChange={(e) => setEnteredPasskey(e.target.value)}
+                placeholder="Enter passkey..."
+                autoFocus
+                className="w-full pl-10 pr-11 py-3 bg-slate-950 border border-slate-700/80 rounded-2xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono text-base tracking-widest text-center"
+              />
               <button
                 type="button"
-                onClick={() => setAuthMode('signin')}
-                className="text-indigo-400 hover:text-indigo-300 font-bold hover:underline cursor-pointer text-[11px]"
+                onClick={() => setShowPasskey(!showPasskey)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
               >
-                Sign In
+                {showPasskey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-          </form>
-        )}
+          </div>
 
-        <div className="pt-2 text-center text-[11px] text-slate-500 flex items-center justify-center space-x-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Multi-User Account System • Secured Local ERP • Ready to Launch</span>
+          {/* On-Screen Mobile Touch Keypad */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'CLR', '0', 'DEL'].map((btn) => (
+              <button
+                key={btn}
+                type="button"
+                onClick={() => handleKeypadPress(btn)}
+                className={`py-3 rounded-xl font-bold text-sm transition-all cursor-pointer active:scale-95 flex items-center justify-center ${
+                  btn === 'DEL' || btn === 'CLR'
+                    ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs'
+                    : 'bg-slate-950/80 hover:bg-slate-800 text-slate-100 border border-slate-800/80 hover:border-slate-700'
+                }`}
+              >
+                {btn === 'DEL' ? <Delete className="w-4 h-4" /> : btn}
+              </button>
+            ))}
+          </div>
+
+          {/* Unlock Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold shadow-xl shadow-indigo-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer active:scale-[0.99] disabled:opacity-50 text-sm mt-2"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Unlock Dashboard</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </form>
+
+        {/* Phone & PC Sync Assurance */}
+        <div className="pt-2 text-center text-[11px] text-slate-400 border-t border-slate-800/80 space-y-1">
+          <p className="flex items-center justify-center space-x-1.5 text-slate-300">
+            <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Phone URL: <code className="text-emerald-400 select-all font-mono">{mobileUrl}</code></span>
+          </p>
+          <p className="text-[10px] text-slate-500">
+            Passkey <strong className="text-slate-300">9444423448</strong> unlocks on all mobile & desktop browsers.
+          </p>
         </div>
       </div>
-
-      {/* Forgot Password Modal */}
-      {isForgotOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 text-xs shadow-2xl">
-            <h3 className="text-sm font-bold text-white">Reset Password</h3>
-            <p className="text-slate-400 text-[11px]">
-              Enter your registered email to receive reset instructions.
-            </p>
-
-            <form onSubmit={handleForgotSubmit} className="space-y-3">
-              <input
-                type="email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="name@example.com"
-                required
-                className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none"
-              />
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsForgotOpen(false)}
-                  className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-indigo-600 text-white font-bold rounded-xl cursor-pointer"
-                >
-                  Send Link
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Setup / Google OAuth Modal */}
-      <SettingsModal
-        isOpen={isSetupOpen}
-        onClose={() => setIsSetupOpen(false)}
-        defaultTab="google"
-      />
     </div>
   );
 };

@@ -12,6 +12,7 @@ import {
   LogOut,
   ShieldCheck,
   Key,
+  Wifi,
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -35,6 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
     setSelectedPropertyId,
     selectedMonth,
     setSelectedMonth,
+    syncNow,
+    isServerSynced,
   } = useData();
 
   const { user, logout, setIsSettingsOpen } = useAuth();
@@ -334,7 +337,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="mt-1.5 flex items-center space-x-1.5">
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center space-x-1">
                     <ShieldCheck className="w-3 h-3" />
-                    <span>{user?.provider === 'google' ? 'Google Account' : 'Owner Admin'}</span>
+                    <span>Family Master Key (9444423448)</span>
                   </span>
                 </div>
               </div>
@@ -347,8 +350,8 @@ export const Header: React.FC<HeaderProps> = ({
                   }}
                   className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center space-x-2.5 cursor-pointer"
                 >
-                  <Settings className="w-4 h-4 text-indigo-400" />
-                  <span>Settings & Cloud Backup</span>
+                  <Key className="w-4 h-4 text-emerald-400" />
+                  <span>Passkey & Mobile Sync</span>
                 </button>
 
                 <button
@@ -358,8 +361,8 @@ export const Header: React.FC<HeaderProps> = ({
                   }}
                   className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center space-x-2.5 cursor-pointer"
                 >
-                  <Key className="w-4 h-4 text-emerald-400" />
-                  <span>Google OAuth Setup</span>
+                  <Settings className="w-4 h-4 text-indigo-400" />
+                  <span>Estate & Backup Settings</span>
                 </button>
               </div>
 
