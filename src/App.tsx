@@ -38,18 +38,17 @@ const LoginScreen: React.FC = () => {
 
   const [enteredPasskey, setEnteredPasskey] = useState('');
   const [showPasskey, setShowPasskey] = useState(false);
-  const [memberName, setMemberName] = useState('Aadhithya (Owner)');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleUnlock = (keyToTest?: string) => {
     const key = (keyToTest || enteredPasskey).trim();
     if (!key) {
-      showToast('Passkey Required', 'Please enter the 10-digit family passkey', 'error');
+      showToast('Passkey Required', 'Please enter your 10-digit passkey', 'error');
       return;
     }
 
     setIsSubmitting(true);
-    const res = loginWithPasskey(key, memberName);
+    const res = loginWithPasskey(key, 'Owner');
     setIsSubmitting(false);
 
     if (res.success) {
@@ -90,7 +89,7 @@ const LoginScreen: React.FC = () => {
             <Building2 className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white mt-1">C S G Estates</h1>
-          <p className="text-xs text-slate-400 font-medium">Rental Property Management — Family Access</p>
+          <p className="text-xs text-slate-400 font-medium">Rental Property Management — Secured Entrance</p>
         </div>
 
         {/* Live Network Sync Badge */}
@@ -105,45 +104,14 @@ const LoginScreen: React.FC = () => {
           <span className="text-[10px] text-slate-400 font-mono">Mobile & PC Shared</span>
         </div>
 
-        {/* Member Profile Selector */}
-        <div>
-          <label className="block text-slate-400 font-semibold mb-1 text-[11px]">Signing in as:</label>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {['Aadhithya (Owner)', 'Family Member'].map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setMemberName(name)}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer truncate ${
-                  memberName === name
-                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-sm'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Passkey Input Box */}
         <form onSubmit={(e) => { e.preventDefault(); handleUnlock(); }} className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-slate-300 font-semibold text-xs flex items-center space-x-1.5">
                 <Key className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Family Passkey (PIN)</span>
+                <span>Enter Passkey (PIN)</span>
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setEnteredPasskey('9444423448');
-                  handleUnlock('9444423448');
-                }}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-bold cursor-pointer"
-              >
-                1-Touch Passkey (9444423448)
-              </button>
             </div>
 
             <div className="relative">
@@ -152,7 +120,7 @@ const LoginScreen: React.FC = () => {
                 type={showPasskey ? 'text' : 'password'}
                 value={enteredPasskey}
                 onChange={(e) => setEnteredPasskey(e.target.value)}
-                placeholder="Enter passkey..."
+                placeholder="••••••••••"
                 autoFocus
                 className="w-full pl-10 pr-11 py-3 bg-slate-950 border border-slate-700/80 rounded-2xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono text-base tracking-widest text-center"
               />
@@ -203,7 +171,7 @@ const LoginScreen: React.FC = () => {
             <span>Phone URL: <code className="text-emerald-400 select-all font-mono">{mobileUrl}</code></span>
           </p>
           <p className="text-[10px] text-slate-500">
-            Passkey <strong className="text-slate-300">9444423448</strong> unlocks on all mobile & desktop browsers.
+            Enter your 10-digit passkey to unlock on mobile or desktop.
           </p>
         </div>
       </div>
