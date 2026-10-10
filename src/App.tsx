@@ -33,14 +33,14 @@ import { useData } from './context/DataContext';
 // Family Passkey Lock Screen
 const LoginScreen: React.FC = () => {
   const { loginWithPasskey } = useAuth();
-  const { syncNow, isServerSynced } = useData();
+  const { syncNow, refreshData, isServerSynced } = useData();
   const { showToast } = useToast();
 
   const [enteredPasskey, setEnteredPasskey] = useState('');
   const [showPasskey, setShowPasskey] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleUnlock = (keyToTest?: string) => {
+  const handleUnlock = async (keyToTest?: string) => {
     const key = (keyToTest || enteredPasskey).trim();
     if (!key) {
       showToast('Passkey Required', 'Please enter your 10-digit passkey', 'error');
@@ -49,14 +49,15 @@ const LoginScreen: React.FC = () => {
 
     setIsSubmitting(true);
     const res = loginWithPasskey(key, 'Owner');
-    setIsSubmitting(false);
 
     if (res.success) {
       showToast('Welcome!', 'C S G Estates Unlocked', 'success');
-      syncNow();
+      await syncNow();
+      refreshData();
     } else {
       showToast('Access Denied', res.message, 'error');
     }
+    setIsSubmitting(false);
   };
 
   const handleKeypadPress = (digit: string) => {

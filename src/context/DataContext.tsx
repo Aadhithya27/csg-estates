@@ -154,8 +154,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteProperty = (id: string) => {
+    DatabaseService.recordDeletion(id);
     syncProperties(properties.filter((p) => p.id !== id));
     // Remove homes inside property
+    homes.filter((h) => h.propertyId === id).forEach((h) => DatabaseService.recordDeletion(h.id));
     syncHomes(homes.filter((h) => h.propertyId !== id));
   };
 
@@ -175,6 +177,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteHome = (id: string) => {
+    DatabaseService.recordDeletion(id);
     syncHomes(homes.filter((h) => h.id !== id));
   };
 
@@ -232,6 +235,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteBill = (id: string) => {
+    DatabaseService.recordDeletion(id);
     syncBills(bills.filter((b) => b.id !== id));
   };
 
@@ -272,6 +276,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteExpense = (id: string) => {
+    DatabaseService.recordDeletion(id);
     syncExpenses(expenses.filter((e) => e.id !== id));
   };
 

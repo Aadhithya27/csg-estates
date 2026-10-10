@@ -110,6 +110,48 @@ export class DatabaseService {
   // --- SERVER & CROSS-DEVICE SYNCHRONIZATION ---
   private static syncInProgress = false;
 
+  private static mergeListsById<T extends { id?: string }>(
+    localList: T[] = [],
+    serverList: T[] = []
+  ): { merged: T[]; hasNewLocalData: boolean } {
+    const map = new Map<string, T>();
+    let hasNewLocalData = false;
+
+    // 1. Put server items first
+    if (Array.isArray(serverList)) {
+      for (const item of serverList) {
+        if (item && item.id) map.set(item.id, item);
+      }
+    }
+
+    // 2. Merge local items without losing anything
+    if (Array.isArray(localList)) {
+      for (const item of localList) {
+        if (item && item.id) {
+          if (!map.has(item.id)) {
+            hasNewLocalData = true;
+            map.set(item.id, item);
+          } else {
+            map.set(item.id, { ...map.get(item.id), ...item });
+          }
+        }
+      }
+    }
+
+    return { merged: Array.from(map.values()), hasNewLocalData };
+  }
+
+  static recordDeletion(id: string): void {
+    try {
+      const deleted: string[] = this.getItem('rpm_deleted_ids', []);
+      if (!deleted.includes(id)) {
+        this.setItem('rpm_deleted_ids', [...deleted, id]);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   static async syncWithServer(): Promise<{ success: boolean; data?: any }> {
     try {
       const res = await fetch('/api/db', {
@@ -119,17 +161,49 @@ export class DatabaseService {
       if (!res.ok) return { success: false };
       const serverData = await res.json();
       if (serverData && typeof serverData === 'object') {
-        if (Array.isArray(serverData.properties)) this.setItem(STORAGE_KEYS.PROPERTIES, serverData.properties);
-        if (Array.isArray(serverData.homes)) this.setItem(STORAGE_KEYS.HOMES, serverData.homes);
-        if (Array.isArray(serverData.bills)) this.setItem(STORAGE_KEYS.BILLS, serverData.bills);
-        if (Array.isArray(serverData.payments)) this.setItem(STORAGE_KEYS.PAYMENTS, serverData.payments);
-        if (Array.isArray(serverData.expenses)) this.setItem(STORAGE_KEYS.EXPENSES, serverData.expenses);
-        if (serverData.settings) this.setItem(STORAGE_KEYS.SETTINGS, serverData.settings);
-        if (serverData.user) this.setItem(STORAGE_KEYS.USER, serverData.user);
-        if (serverData.passkey) this.setItem('rpm_master_passkey_val', serverData.passkey);
+        const localProps = this.getProperties();
+        const localHomes = this.getHomes();
+        const localBills = this.getBills();
+        const localPayments = this.getPayments();
+        const localExpenses = this.getExpenses();
 
-        window.dispatchEvent(new CustomEvent('rpm_sync_completed', { detail: serverData }));
-        return { success: true, data: serverData };
+        const p = this.mergeListsById(localProps, serverData.properties);
+        const h = this.mergeListsById(localHomes, serverData.homes);
+        const b = this.mergeListsById(localBills, serverData.bills);
+        const pay = this.mergeListsById(localPayments, serverData.payments);
+        const exp = this.mergeListsById(localExpenses, serverData.expenses);
+
+        this.setItem(STORAGE_KEYS.PROPERTIES, p.merged);
+        this.setItem(STORAGE_KEYS.HOMES, h.merged);
+        this.setItem(STORAGE_KEYS.BILLS, b.merged);
+        this.setItem(STORAGE_KEYS.PAYMENTS, pay.merged);
+        this.setItem(STORAGE_KEYS.EXPENSES, exp.merged);
+
+        if (serverData.settings) {
+          this.setItem(STORAGE_KEYS.SETTINGS, { ...this.getSettings(), ...serverData.settings });
+        }
+        if (serverData.passkey) {
+          this.setItem('rpm_master_passkey_val', serverData.passkey);
+        }
+
+        const mergedData = {
+          properties: p.merged,
+          homes: h.merged,
+          bills: b.merged,
+          payments: pay.merged,
+          expenses: exp.merged,
+          settings: this.getSettings(),
+          user: this.getUser(),
+        };
+
+        window.dispatchEvent(new CustomEvent('rpm_sync_completed', { detail: mergedData }));
+
+        // If local device had items the server didn't have, immediately push them to the server
+        if (p.hasNewLocalData || h.hasNewLocalData || b.hasNewLocalData || pay.hasNewLocalData || exp.hasNewLocalData) {
+          this.pushToServer();
+        }
+
+        return { success: true, data: mergedData };
       }
       return { success: false };
     } catch {
@@ -147,6 +221,7 @@ export class DatabaseService {
         bills: this.getBills(),
         payments: this.getPayments(),
         expenses: this.getExpenses(),
+        deletedIds: this.getItem('rpm_deleted_ids', []),
         settings: this.getSettings(),
         user: this.getUser(),
         passkey: this.getPasskey(),
