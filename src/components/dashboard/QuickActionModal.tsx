@@ -38,10 +38,10 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
   const [houseNumber, setHouseNumber] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
-  const [monthlyRent, setMonthlyRent] = useState('12000');
-  const [securityDeposit, setSecurityDeposit] = useState('60000');
-  const [elecCharge, setElecCharge] = useState('1000');
-  const [waterCharge, setWaterCharge] = useState('400');
+  const [monthlyRent, setMonthlyRent] = useState('');
+  const [securityDeposit, setSecurityDeposit] = useState('');
+  const [elecCharge, setElecCharge] = useState('0');
+  const [waterCharge, setWaterCharge] = useState('0');
   const [propertyName, setPropertyName] = useState('');
   const [propertyAddress, setPropertyAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
@@ -302,7 +302,7 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
                 type="text"
                 value={tenantName}
                 onChange={(e) => setTenantName(e.target.value)}
-                placeholder="Rajesh Kumar"
+                placeholder="e.g. Full Name"
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100"
               />
             </div>
@@ -313,7 +313,7 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
                 type="text"
                 value={tenantPhone}
                 onChange={(e) => setTenantPhone(e.target.value)}
-                placeholder="+91 98401 23456"
+                placeholder="e.g. +91 98765 43210"
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100"
               />
             </div>

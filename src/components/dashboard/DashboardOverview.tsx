@@ -104,6 +104,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </button>
       </div>
 
+      {/* Empty State Banner if no properties added yet */}
+      {properties.length === 0 && (
+        <div className="p-8 bg-slate-900/80 border border-dashed border-slate-800 rounded-3xl text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-white">Welcome! No Properties Added Yet</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Your rental ERP is clean and ready. Start by adding your first property and configuring rental units or rooms.
+          </p>
+          <button
+            onClick={() => onOpenQuickAction('PROPERTY')}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow transition-all cursor-pointer inline-flex items-center space-x-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add First Property</span>
+          </button>
+        </div>
+      )}
+
       {/* DASHBOARD CARDS GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
         {/* Card 1: Total Properties */}

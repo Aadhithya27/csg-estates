@@ -22,8 +22,8 @@ const LoginScreen: React.FC = () => {
   const { login, resetPassword } = useAuth();
   const { showToast } = useToast();
 
-  const [email, setEmail] = useState('owner@csgestates.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isSetupOpen, setIsSetupOpen] = useState(false);
@@ -32,7 +32,7 @@ const LoginScreen: React.FC = () => {
     e.preventDefault();
     const success = await login(email, password);
     if (success) {
-      showToast('Welcome back, Owner!', 'Signed into Property Manager', 'success');
+      showToast('Welcome!', 'Signed into Property Manager', 'success');
     } else {
       showToast('Invalid login', 'Password must be at least 4 characters', 'error');
     }
@@ -43,12 +43,6 @@ const LoginScreen: React.FC = () => {
     const res = await resetPassword(resetEmail);
     showToast(res.success ? 'Email Sent' : 'Error', res.message, res.success ? 'info' : 'error');
     setIsForgotOpen(false);
-  };
-
-  const handleLoadDemoCreds = () => {
-    setEmail('owner@csgestates.com');
-    setPassword('admin123');
-    showToast('Demo Credentials Loaded', 'owner@csgestates.com / admin123', 'info');
   };
 
   return (
@@ -79,7 +73,7 @@ const LoginScreen: React.FC = () => {
           </div>
           <div className="relative flex justify-center text-[10px] uppercase">
             <span className="bg-slate-900 px-3 text-slate-500 font-semibold tracking-wider">
-              Or with Owner Password
+              Or with Email & Password
             </span>
           </div>
         </div>
@@ -87,14 +81,14 @@ const LoginScreen: React.FC = () => {
         {/* 2. Standard Email/Password Form */}
         <form onSubmit={handleLogin} className="space-y-4 text-xs">
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Owner Email *</label>
+            <label className="block text-slate-300 font-semibold mb-1">Email Address *</label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="owner@csgestates.com"
+                placeholder="name@example.com"
                 required
                 className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
               />
@@ -123,17 +117,6 @@ const LoginScreen: React.FC = () => {
                 className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
               />
             </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
-            <button
-              type="button"
-              onClick={handleLoadDemoCreds}
-              className="text-[11px] text-slate-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer"
-            >
-              <Sparkles className="w-3 h-3 text-indigo-400" />
-              <span>Fill Demo Credentials</span>
-            </button>
           </div>
 
           <button
@@ -165,7 +148,7 @@ const LoginScreen: React.FC = () => {
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="owner@csgestates.com"
+                placeholder="name@example.com"
                 required
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none"
               />

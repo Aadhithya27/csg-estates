@@ -85,7 +85,7 @@ export const PropertiesList: React.FC<PropertiesListProps> = ({
     setEditingProperty(null);
     setPropName('');
     setPropAddress('');
-    setPropCity('Chennai');
+    setPropCity('');
     setPropNotes('');
     setIsPropModalOpen(true);
   };
@@ -142,10 +142,10 @@ export const PropertiesList: React.FC<PropertiesListProps> = ({
     setHomeHouseNumber('');
     setHomeTenantName('');
     setHomeTenantPhone('');
-    setHomeMonthlyRent('12000');
-    setHomeSecurityDeposit('60000');
-    setHomeElecCharge('1000');
-    setHomeWaterCharge('400');
+    setHomeMonthlyRent('');
+    setHomeSecurityDeposit('');
+    setHomeElecCharge('0');
+    setHomeWaterCharge('0');
     setHomeOtherCharges('0');
     setHomeDueDate('5th of every month');
     setHomeOccupancy('Occupied');
@@ -629,7 +629,7 @@ export const PropertiesList: React.FC<PropertiesListProps> = ({
                 type="text"
                 value={homeTenantName}
                 onChange={(e) => setHomeTenantName(e.target.value)}
-                placeholder="e.g. Rajesh Kumar"
+                placeholder="e.g. Full Name"
                 className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 focus:border-indigo-500 focus:outline-none"
               />
             </div>
@@ -640,7 +640,7 @@ export const PropertiesList: React.FC<PropertiesListProps> = ({
                 type="text"
                 value={homeTenantPhone}
                 onChange={(e) => setHomeTenantPhone(e.target.value)}
-                placeholder="+91 98401 23456"
+                placeholder="e.g. +91 98765 43210"
                 className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 focus:border-indigo-500 focus:outline-none"
               />
             </div>
